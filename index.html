@@ -1,151 +1,164 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Průvodce Pražským hradem</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body {
       margin: 0;
       padding: 0;
+      font-family: sans-serif;
       height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
+
     .container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      height: 100vh;
+      width: 100%;
+      max-width: 600px;
+      height: 100dvh;
       box-sizing: border-box;
-      padding: 1vh 1vw;
+      padding: 8px;
+      gap: 8px;
     }
-    h1 {
-      font-size: 2.5vh;
-      margin: 0.5vh 0;
+
+    h2 {
+      font-size: 1.2em;
+      margin: 0;
       text-align: center;
     }
+
     iframe {
       width: 100%;
-      max-width: 600px;
-      height: 25vh;
+      aspect-ratio: 16/9;
       border: none;
     }
+
     #map {
       width: 100%;
-      max-width: 600px;
-      height: 30vh;
+      flex: 1;
+      border-radius: 10px;
     }
+
     .buttons {
       display: flex;
       justify-content: space-between;
       width: 100%;
-      max-width: 600px;
-      margin-top: 1vh;
     }
+
     button {
-      padding: 0.8em 1.2em;
+      padding: 6px 12px;
       font-size: 1em;
     }
   </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
   <div class="container">
-    <h1 id="title">Královská zahrada</h1>
+    <h2 id="nazev">Královská zahrada</h2>
     <iframe id="video" src="https://www.youtube.com/embed/yY3WFh3k85I?si=x5Xzv5z9kyv1XjxI" allowfullscreen></iframe>
     <div id="map"></div>
     <div class="buttons">
-      <button onclick="prev()">Předchozí</button>
-      <button onclick="next()">Další</button>
+      <button onclick="predchozi()">◀️ Předchozí</button>
+      <button onclick="dalsi()">Další ▶️</button>
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    const places = [
+    const pamatky = [
       {
-        name: "Královská zahrada",
-        coords: [50.0912, 14.4006],
-        video: "https://www.youtube.com/embed/yY3WFh3k85I?si=x5Xzv5z9kyv1XjxI"
+        nazev: "Královská zahrada",
+        video: "https://www.youtube.com/embed/yY3WFh3k85I?si=x5Xzv5z9kyv1XjxI",
+        souradnice: [50.093, 14.4005]
       },
       {
-        name: "Katedrála svatého Víta",
-        coords: [50.0905, 14.4000],
-        video: "https://www.youtube.com/embed/Uur-9R_7vZs?si=38Zhr0bX2F1uXz0s"
+        nazev: "Katedrála svatého Víta",
+        video: "https://www.youtube.com/embed/Uur-9R_7vZs?si=38Zhr0bX2F1uXz0s",
+        souradnice: [50.0903, 14.4009]
       },
       {
-        name: "Starý královský palác",
-        coords: [50.0902, 14.3994],
-        video: "https://www.youtube.com/embed/ZM86oAJqY5E?si=_VKqAML_K6WuayUT"
+        nazev: "Starý královský palác",
+        video: "https://www.youtube.com/embed/ZM86oAJqY5E?si=_VKqAML_K6WuayUT",
+        souradnice: [50.0907, 14.4023]
       }
     ];
 
-    let current = 0;
+    let aktualni = 0;
 
-    const map = L.map('map').setView(places[0].coords, 17);
+    const map = L.map('map');
+
+    const aktualizuj = () => {
+      const { nazev, video, souradnice } = pamatky[aktualni];
+      document.getElementById("nazev").innerText = nazev;
+      document.getElementById("video").src = video;
+      map.setView(souradnice, 18);
+      markers.forEach((m, i) => {
+        m.setIcon(L.icon({
+          iconUrl: i === aktualni ? 'https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png' : 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
+          iconSize: [32, 32],
+          iconAnchor: [16, 32]
+        }));
+      });
+    };
+
+    const predchozi = () => {
+      aktualni = (aktualni - 1 + pamatky.length) % pamatky.length;
+      aktualizuj();
+    };
+
+    const dalsi = () => {
+      aktualni = (aktualni + 1) % pamatky.length;
+      aktualizuj();
+    };
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: 'Map data © OpenStreetMap contributors'
+      maxZoom: 20,
     }).addTo(map);
 
-    // čára mezi body
-    const route = L.polyline(places.map(p => p.coords), { color: 'blue' }).addTo(map);
-
-    // špendlíky
-    let markers = [];
-    places.forEach((place, i) => {
-      const marker = L.marker(place.coords, { icon: createIcon(i === current) })
+    const markers = pamatky.map((bod, index) => {
+      const marker = L.marker(bod.souradnice, {
+        icon: L.icon({
+          iconUrl: index === 0 ? 'https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png' : 'https://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png',
+          iconSize: [32, 32],
+          iconAnchor: [16, 32]
+        })
+      })
         .addTo(map)
-        .on('click', () => goTo(i));
-      markers.push(marker);
+        .on('click', () => {
+          aktualni = index;
+          aktualizuj();
+        });
+      return marker;
     });
 
-    function createIcon(active) {
-      return L.icon({
-        iconUrl: active ? 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-        iconSize: [32, 32],
-        iconAnchor: [16, 32]
-      });
-    }
-
-    function updateMarkers() {
-      markers.forEach((marker, i) => {
-        marker.setIcon(createIcon(i === current));
-      });
-    }
-
-    function goTo(i) {
-      current = i;
-      const place = places[i];
-      document.getElementById('title').innerText = place.name;
-      document.getElementById('video').src = place.video;
-      map.setView(place.coords, 18);
-      updateMarkers();
-    }
-
-    function prev() {
-      if (current > 0) goTo(current - 1);
-    }
-
-    function next() {
-      if (current < places.length - 1) goTo(current + 1);
-    }
-
-    // GPS pozice uživatele
-    const userIcon = L.icon({
-      iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // panáček místo tečky
-      iconSize: [32, 32],
-      iconAnchor: [16, 32]
-    });
-
-    const userMarker = L.marker([0, 0], { icon: userIcon }).addTo(map);
+    const souradniceTrasy = pamatky.map(p => p.souradnice);
+    L.polyline(souradniceTrasy, { color: 'blue' }).addTo(map);
 
     if (navigator.geolocation) {
       navigator.geolocation.watchPosition(pos => {
-        const latlng = [pos.coords.latitude, pos.coords.longitude];
-        userMarker.setLatLng(latlng);
+        const { latitude, longitude } = pos.coords;
+        if (!window.userMarker) {
+          window.userMarker = L.marker([latitude, longitude], {
+            icon: L.icon({
+              iconUrl: 'https://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png',
+              iconSize: [32, 32],
+              iconAnchor: [16, 32]
+            })
+          }).addTo(map);
+        } else {
+          window.userMarker.setLatLng([latitude, longitude]);
+        }
       });
     }
+
+    aktualizuj();
   </script>
 </body>
 </html>
