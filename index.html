@@ -3,168 +3,149 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Online e-Guide – Pražský hrad</title>
+  <title>Průvodce Pražským hradem</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
-    body {
-      font-family: sans-serif;
-      display: flex;
-      justify-content: center;
-      padding: 0;
+    html, body {
       margin: 0;
+      padding: 0;
+      height: 100%;
     }
     .container {
-      width: 100%;
-      max-width: 600px;
-      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      height: 100vh;
       box-sizing: border-box;
+      padding: 1vh 1vw;
     }
-    h2 {
-      font-size: 1.2em;
-      margin: 0.5em 0;
+    h1 {
+      font-size: 2.5vh;
+      margin: 0.5vh 0;
       text-align: center;
     }
     iframe {
       width: 100%;
-      height: 200px;
+      max-width: 600px;
+      height: 25vh;
       border: none;
-      display: block;
     }
     #map {
       width: 100%;
-      height: 200px;
-      margin-top: 10px;
+      max-width: 600px;
+      height: 30vh;
     }
     .buttons {
       display: flex;
       justify-content: space-between;
-      margin-top: 10px;
+      width: 100%;
+      max-width: 600px;
+      margin-top: 1vh;
     }
     button {
-      padding: 8px 12px;
+      padding: 0.8em 1.2em;
       font-size: 1em;
-      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h2 id="title">Královská zahrada</h2>
+    <h1 id="title">Královská zahrada</h1>
     <iframe id="video" src="https://www.youtube.com/embed/yY3WFh3k85I?si=x5Xzv5z9kyv1XjxI" allowfullscreen></iframe>
     <div id="map"></div>
     <div class="buttons">
-      <button onclick="previousStop()">Předchozí</button>
-      <button onclick="nextStop()">Další</button>
+      <button onclick="prev()">Předchozí</button>
+      <button onclick="next()">Další</button>
     </div>
   </div>
+
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    const stops = [
+    const places = [
       {
-        title: "Královská zahrada",
-        lat: 50.0913,
-        lng: 14.4036,
+        name: "Královská zahrada",
+        coords: [50.0912, 14.4006],
         video: "https://www.youtube.com/embed/yY3WFh3k85I?si=x5Xzv5z9kyv1XjxI"
       },
       {
-        title: "Katedrála svatého Víta",
-        lat: 50.0900,
-        lng: 14.4005,
+        name: "Katedrála svatého Víta",
+        coords: [50.0905, 14.4000],
         video: "https://www.youtube.com/embed/Uur-9R_7vZs?si=38Zhr0bX2F1uXz0s"
       },
       {
-        title: "Starý královský palác",
-        lat: 50.0904,
-        lng: 14.4015,
+        name: "Starý královský palác",
+        coords: [50.0902, 14.3994],
         video: "https://www.youtube.com/embed/ZM86oAJqY5E?si=_VKqAML_K6WuayUT"
       }
     ];
 
-    let currentIndex = 0;
+    let current = 0;
 
-    const titleEl = document.getElementById('title');
-    const videoEl = document.getElementById('video');
-
-    const map = L.map('map').setView([stops[0].lat, stops[0].lng], 17);
+    const map = L.map('map').setView(places[0].coords, 17);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: 'Map data © OpenStreetMap contributors'
     }).addTo(map);
 
-    // Trasa čarou
-    const latlngs = stops.map(s => [s.lat, s.lng]);
-    L.polyline(latlngs, {color: 'blue'}).addTo(map);
+    // čára mezi body
+    const route = L.polyline(places.map(p => p.coords), { color: 'blue' }).addTo(map);
 
-    // Body s klikem
-    const markers = stops.map((stop, index) => {
-      const marker = L.marker([stop.lat, stop.lng], {
-        icon: L.icon({
-          iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-        })
-      }).addTo(map);
+    // špendlíky
+    let markers = [];
+    places.forEach((place, i) => {
+      const marker = L.marker(place.coords, { icon: createIcon(i === current) })
+        .addTo(map)
+        .on('click', () => goTo(i));
+      markers.push(marker);
+    });
 
-      marker.on('click', () => {
-        setStop(index);
-        map.setView([stop.lat, stop.lng], 18);
+    function createIcon(active) {
+      return L.icon({
+        iconUrl: active ? 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png' : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
       });
-      return marker;
-    });
+    }
 
-    // Pozice uživatele
-    let userMarker;
-    map.locate({ setView: false, watch: true });
-
-    map.on('locationfound', e => {
-      if (!userMarker) {
-        userMarker = L.circleMarker(e.latlng, {
-          radius: 8,
-          fillColor: 'red',
-          color: 'red',
-          weight: 2,
-          opacity: 1,
-          fillOpacity: 0.8
-        }).addTo(map);
-      } else {
-        userMarker.setLatLng(e.latlng);
-      }
-    });
-
-    function setStop(index) {
-      currentIndex = index;
-      const stop = stops[index];
-      titleEl.textContent = stop.title;
-      videoEl.src = stop.video;
-
+    function updateMarkers() {
       markers.forEach((marker, i) => {
-        const iconUrl = (i === index)
-          ? 'https://maps.google.com/mapfiles/ms/icons/yellow-dot.png'
-          : 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png';
-
-        marker.setIcon(L.icon({
-          iconUrl: iconUrl,
-          iconSize: [32, 32],
-          iconAnchor: [16, 32],
-        }));
+        marker.setIcon(createIcon(i === current));
       });
     }
 
-    function previousStop() {
-      if (currentIndex > 0) {
-        setStop(currentIndex - 1);
-        map.setView([stops[currentIndex].lat, stops[currentIndex].lng], 18);
-      }
+    function goTo(i) {
+      current = i;
+      const place = places[i];
+      document.getElementById('title').innerText = place.name;
+      document.getElementById('video').src = place.video;
+      map.setView(place.coords, 18);
+      updateMarkers();
     }
 
-    function nextStop() {
-      if (currentIndex < stops.length - 1) {
-        setStop(currentIndex + 1);
-        map.setView([stops[currentIndex].lat, stops[currentIndex].lng], 18);
-      }
+    function prev() {
+      if (current > 0) goTo(current - 1);
     }
 
-    setStop(currentIndex);
+    function next() {
+      if (current < places.length - 1) goTo(current + 1);
+    }
+
+    // GPS pozice uživatele
+    const userIcon = L.icon({
+      iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png', // panáček místo tečky
+      iconSize: [32, 32],
+      iconAnchor: [16, 32]
+    });
+
+    const userMarker = L.marker([0, 0], { icon: userIcon }).addTo(map);
+
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(pos => {
+        const latlng = [pos.coords.latitude, pos.coords.longitude];
+        userMarker.setLatLng(latlng);
+      });
+    }
   </script>
 </body>
 </html>
